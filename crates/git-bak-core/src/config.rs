@@ -29,12 +29,22 @@ impl WorkspaceConfig {
             ))
         })?;
 
-        toml::from_str::<Self>(&content).map_err(|source| {
+        Self::from_toml_str(&content).map_err(|source| {
             Error::Config(format!(
-                "failed to parse config at {}: {source}",
+                "failed to parse config at {}: {}",
                 config_path.display()
+                ,
+                match source {
+                    Error::Config(message) => message,
+                    _ => source.to_string(),
+                }
             ))
         })
+    }
+
+    pub fn from_toml_str(content: &str) -> Result<Self> {
+        toml::from_str::<Self>(content)
+            .map_err(|source| Error::Config(format!("invalid config format: {source}")))
     }
 }
 
@@ -69,7 +79,7 @@ mod tests {
     use crate::types::WatchMode;
 
     #[test]
-    fn test_load_config_uses_defaults_for_optional_fields() {
+    fn test_defaults_apply_to_optional_fields() {
         let dir = match tempdir() {
             Ok(dir) => dir,
             Err(err) => panic!("failed to create tempdir: {err}"),
@@ -79,12 +89,52 @@ mod tests {
         let write_result = fs::write(&config_path, "workspace = \"/tmp/repo\"\n");
         assert!(write_result.is_ok());
 
-        let config = match WorkspaceConfig::load(&config_path) {
+        let config = match WorkspaceConfig::load(config_path) {
             Ok(config) => config,
             Err(err) => panic!("failed to load config: {err}"),
         };
 
         assert_eq!(config.workspace, PathBuf::from("/tmp/repo"));
+        assert_eq!(config.watch.len(), 7);
+        assert_eq!(config.debounce_ms, 1_500);
+        assert_eq!(config.push_interval_sec, 600);
+        assert_eq!(config.mode, WatchMode::Watcher);
+    }
+
+    #[test]
+    fn test_from_toml_str_parses_explicit_values() {
+        let toml_content = r#"
+workspace = "/tmp/workspace"
+watch = ["SOUL.md", "memory/*.md"]
+debounce_ms = 300
+push_interval_sec = 120
+mode = "hook"
+"#;
+
+        let config = match WorkspaceConfig::from_toml_str(toml_content) {
+            Ok(config) => config,
+            Err(err) => panic!("failed to parse config from string: {err}"),
+        };
+
+        assert_eq!(config.workspace, PathBuf::from("/tmp/workspace"));
+        assert_eq!(config.watch.len(), 2);
+        assert_eq!(config.debounce_ms, 300);
+        assert_eq!(config.push_interval_sec, 120);
+        assert_eq!(config.mode, WatchMode::Hook);
+    }
+
+    #[test]
+    fn test_missing_optional_fields_use_defaults() {
+        let toml_content = r#"
+workspace = "/tmp/minimal"
+"#;
+
+        let config = match WorkspaceConfig::from_toml_str(toml_content) {
+            Ok(config) => config,
+            Err(err) => panic!("failed to parse minimal config: {err}"),
+        };
+
+        assert_eq!(config.workspace, PathBuf::from("/tmp/minimal"));
         assert_eq!(config.watch.len(), 7);
         assert_eq!(config.debounce_ms, 1_500);
         assert_eq!(config.push_interval_sec, 600);
