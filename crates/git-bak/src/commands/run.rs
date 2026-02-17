@@ -32,8 +32,9 @@ pub async fn execute() -> Result<(), Error> {
 }
 
 fn config_path() -> Result<PathBuf, Error> {
-    let current_dir = std::env::current_dir()
-        .map_err(|source| Error::Config(format!("failed to resolve current directory: {source}")))?;
+    let current_dir = std::env::current_dir().map_err(|source| {
+        Error::Config(format!("failed to resolve current directory: {source}"))
+    })?;
     Ok(current_dir.join("personaguard.toml"))
 }
 

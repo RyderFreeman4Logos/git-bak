@@ -32,8 +32,7 @@ impl WorkspaceConfig {
         Self::from_toml_str(&content).map_err(|source| {
             Error::Config(format!(
                 "failed to parse config at {}: {}",
-                config_path.display()
-                ,
+                config_path.display(),
                 match source {
                     Error::Config(message) => message,
                     _ => source.to_string(),

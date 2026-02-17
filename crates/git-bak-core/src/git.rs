@@ -56,7 +56,11 @@ impl GitRepo {
 
         run_git_in_os(
             &self.path,
-            [OsStr::new("add"), OsStr::new("--"), relative_path.as_os_str()],
+            [
+                OsStr::new("add"),
+                OsStr::new("--"),
+                relative_path.as_os_str(),
+            ],
         )
         .map(|_| ())
     }
@@ -84,7 +88,10 @@ impl GitRepo {
 }
 
 fn run_git_in(path: &Path, args: impl IntoIterator<Item = impl AsRef<str>>) -> Result<String> {
-    let arguments: Vec<String> = args.into_iter().map(|arg| arg.as_ref().to_owned()).collect();
+    let arguments: Vec<String> = args
+        .into_iter()
+        .map(|arg| arg.as_ref().to_owned())
+        .collect();
     let output = Command::new("git")
         .arg("-C")
         .arg(path)
@@ -113,8 +120,10 @@ fn run_git_in(path: &Path, args: impl IntoIterator<Item = impl AsRef<str>>) -> R
 }
 
 fn run_git_in_os(path: &Path, args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Result<String> {
-    let arguments: Vec<std::ffi::OsString> =
-        args.into_iter().map(|arg| arg.as_ref().to_owned()).collect();
+    let arguments: Vec<std::ffi::OsString> = args
+        .into_iter()
+        .map(|arg| arg.as_ref().to_owned())
+        .collect();
     let output = Command::new("git")
         .arg("-C")
         .arg(path)

@@ -37,24 +37,22 @@ impl PersonaWatcher {
     }
 
     pub fn run(&self) -> Result<()> {
-        let (tx, rx): (mpsc::Sender<DebounceEventResult>, mpsc::Receiver<DebounceEventResult>) =
-            mpsc::channel();
+        let (tx, rx): (
+            mpsc::Sender<DebounceEventResult>,
+            mpsc::Receiver<DebounceEventResult>,
+        ) = mpsc::channel();
 
-        let mut debouncer = new_debouncer(
-            Duration::from_millis(self.config.debounce_ms),
-            None,
-            tx,
-        )
-        .map_err(|source| Error::Watcher(format!("failed to create debouncer: {source}")))?;
+        let mut debouncer = new_debouncer(Duration::from_millis(self.config.debounce_ms), None, tx)
+            .map_err(|source| Error::Watcher(format!("failed to create debouncer: {source}")))?;
 
-        debouncer.watch(&self.config.workspace, RecursiveMode::Recursive).map_err(
-            |source| {
+        debouncer
+            .watch(&self.config.workspace, RecursiveMode::Recursive)
+            .map_err(|source| {
                 Error::Watcher(format!(
                     "failed to watch workspace {}: {source}",
                     self.config.workspace.display()
                 ))
-            },
-        )?;
+            })?;
 
         while !self.stop_flag.load(Ordering::Relaxed) {
             match rx.recv_timeout(Duration::from_millis(200)) {

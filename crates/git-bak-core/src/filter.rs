@@ -11,9 +11,9 @@ impl PathFilter {
             .and_then(|name| name.to_str())
             .unwrap_or_default();
 
-        patterns
-            .iter()
-            .any(|pattern| matches_glob(pattern, &normalized_path) || matches_glob(pattern, file_name))
+        patterns.iter().any(|pattern| {
+            matches_glob(pattern, &normalized_path) || matches_glob(pattern, file_name)
+        })
     }
 
     pub fn matches_denylist(path: &Path) -> bool {
@@ -80,7 +80,10 @@ mod tests {
             "AGENTS.md".to_owned(),
         ];
 
-        assert!(PathFilter::matches_allowlist(Path::new("SOUL.md"), &patterns));
+        assert!(PathFilter::matches_allowlist(
+            Path::new("SOUL.md"),
+            &patterns
+        ));
         assert!(PathFilter::matches_allowlist(
             Path::new("memory/session.md"),
             &patterns

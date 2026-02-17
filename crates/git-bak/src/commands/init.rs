@@ -6,8 +6,9 @@ use git_bak_core::{Error, GitRepo, Result};
 pub fn execute(path: Option<PathBuf>) -> Result<()> {
     let workspace = match path {
         Some(path) => path,
-        None => std::env::current_dir()
-            .map_err(|source| Error::Config(format!("failed to resolve current directory: {source}")))?,
+        None => std::env::current_dir().map_err(|source| {
+            Error::Config(format!("failed to resolve current directory: {source}"))
+        })?,
     };
 
     fs::create_dir_all(&workspace).map_err(|source| {
