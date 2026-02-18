@@ -6,3 +6,6 @@ target/
 *.key
 .csa/
 .weave/
+
+result.toml
+drafts/result.toml
