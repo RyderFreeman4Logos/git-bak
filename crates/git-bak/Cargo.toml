@@ -1,0 +1,13 @@
+[package]
+name = "git-bak"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+git-bak-core = { path = "../git-bak-core" }
+clap = { workspace = true, features = ["derive"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "signal"] }

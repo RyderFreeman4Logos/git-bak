@@ -1,0 +1,22 @@
+# Workspace directory to monitor and back up.
+workspace = "."
+
+# File globs to monitor for persona and memory changes.
+watch = [
+  "SOUL.md",
+  "AGENTS.md",
+  "USER.md",
+  "IDENTITY.md",
+  "TOOLS.md",
+  "MEMORY.md",
+  "memory/*.md",
+]
+
+# Debounce window in milliseconds before processing a file change.
+debounce_ms = 1500
+
+# Maximum interval between background pushes (seconds).
+push_interval_sec = 600
+
+# Watch mode: "watcher" or "hook".
+mode = "watcher"
