@@ -1,10 +1,13 @@
+use std::fs;
+use std::path::Path;
 use std::path::PathBuf;
 
 use git_bak_core::{Error, GitRepo, ProcessLock, WorkspaceConfig};
 
 pub fn execute() -> Result<(), Error> {
     let config_path = config_path()?;
-    let config = WorkspaceConfig::load(&config_path)?;
+    let mut config = WorkspaceConfig::load(&config_path)?;
+    config.workspace = normalize_workspace_path(config.workspace.as_path())?;
     let repo = GitRepo::new(&config.workspace)?;
 
     println!("config: {}", config_path.display());
@@ -46,4 +49,23 @@ fn config_path() -> Result<PathBuf, Error> {
         Error::Config(format!("failed to resolve current directory: {source}"))
     })?;
     Ok(current_dir.join("personaguard.toml"))
+}
+
+fn normalize_workspace_path(path: &Path) -> Result<PathBuf, Error> {
+    let candidate = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map_err(|source| {
+                Error::Config(format!("failed to resolve current directory: {source}"))
+            })?
+            .join(path)
+    };
+
+    fs::canonicalize(&candidate).map_err(|source| {
+        Error::Config(format!(
+            "failed to normalize workspace path {}: {source}",
+            candidate.display()
+        ))
+    })
 }

@@ -1,4 +1,5 @@
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::thread;
 
@@ -6,7 +7,8 @@ use git_bak_core::{Error, GitRepo, PersonaWatcher, ProcessLock, WatchMode, Works
 
 pub async fn execute() -> Result<(), Error> {
     let config_path = config_path()?;
-    let config = WorkspaceConfig::load(&config_path)?;
+    let mut config = WorkspaceConfig::load(&config_path)?;
+    config.workspace = normalize_workspace_path(config.workspace.as_path())?;
     let repo = GitRepo::new(&config.workspace)?;
 
     match config.mode {
@@ -77,11 +79,32 @@ fn config_path() -> Result<PathBuf, Error> {
     Ok(current_dir.join("personaguard.toml"))
 }
 
+fn normalize_workspace_path(path: &Path) -> Result<PathBuf, Error> {
+    let candidate = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map_err(|source| {
+                Error::Config(format!("failed to resolve current directory: {source}"))
+            })?
+            .join(path)
+    };
+
+    fs::canonicalize(&candidate).map_err(|source| {
+        Error::Config(format!(
+            "failed to normalize workspace path {}: {source}",
+            candidate.display()
+        ))
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use git_bak_core::Error;
 
-    use super::run_hook_mode;
+    use std::path::Path;
+
+    use super::{normalize_workspace_path, run_hook_mode};
 
     #[test]
     fn test_run_hook_mode_returns_clear_error() {
@@ -92,5 +115,12 @@ mod tests {
             Error::Hook(message) => assert!(message.contains("hook mode")),
             other => panic!("expected hook error, got {other}"),
         }
+    }
+
+    #[test]
+    fn test_normalize_workspace_path_resolves_relative_path() {
+        let normalized = normalize_workspace_path(Path::new("."));
+        assert!(normalized.is_ok());
+        assert!(normalized.unwrap_or_default().is_absolute());
     }
 }
