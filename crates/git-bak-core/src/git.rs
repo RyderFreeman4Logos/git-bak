@@ -65,6 +65,31 @@ impl GitRepo {
         .map(|_| ())
     }
 
+    pub fn add_all(&self, file: &Path) -> Result<()> {
+        let relative_path = if file.is_absolute() {
+            file.strip_prefix(&self.path).map_err(|source| {
+                Error::Git(format!(
+                    "path {} is outside repository {}: {source}",
+                    file.display(),
+                    self.path.display()
+                ))
+            })?
+        } else {
+            file
+        };
+
+        run_git_in_os(
+            &self.path,
+            [
+                OsStr::new("add"),
+                OsStr::new("-A"),
+                OsStr::new("--"),
+                relative_path.as_os_str(),
+            ],
+        )
+        .map(|_| ())
+    }
+
     pub fn commit(&self, message: &str) -> Result<String> {
         run_git_in_os(
             &self.path,
@@ -281,6 +306,30 @@ mod tests {
         let status = repo.status().unwrap_or_default();
         assert!(status.contains("A  USER.md"));
         assert!(!status.contains("SOUL.md"));
+    }
+
+    #[test]
+    fn test_add_all_stages_deletion_for_target_path() {
+        let dir = match tempdir() {
+            Ok(dir) => dir,
+            Err(err) => panic!("failed to create tempdir: {err}"),
+        };
+        let repo = match GitRepo::init(dir.path()) {
+            Ok(repo) => repo,
+            Err(err) => panic!("failed to init git repo: {err}"),
+        };
+        setup_git_identity(repo.path());
+
+        let file_path = dir.path().join("SOUL.md");
+        assert!(fs::write(&file_path, "seed\n").is_ok());
+        assert!(repo.add(Path::new("SOUL.md")).is_ok());
+        assert!(repo.commit("seed").is_ok());
+
+        assert!(fs::remove_file(&file_path).is_ok());
+        assert!(repo.add_all(Path::new("SOUL.md")).is_ok());
+
+        let status = repo.status().unwrap_or_default();
+        assert!(status.contains("D  SOUL.md"));
     }
 
     #[test]

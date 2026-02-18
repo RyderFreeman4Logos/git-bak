@@ -88,6 +88,65 @@ fn test_watcher_pipeline() {
     assert!(commit_count > 0);
 }
 
+#[test]
+fn test_watcher_pipeline_tracks_deletion() {
+    let dir = match tempdir() {
+        Ok(dir) => dir,
+        Err(err) => panic!("failed to create tempdir: {err}"),
+    };
+    let repo = match GitRepo::init(dir.path()) {
+        Ok(repo) => repo,
+        Err(err) => panic!("failed to init repository: {err}"),
+    };
+    setup_git_identity(repo.path());
+
+    let file_path = dir.path().join("SOUL.md");
+    let seed_write = fs::write(&file_path, "seed\n");
+    assert!(seed_write.is_ok());
+    let seed_add = repo.add(Path::new("SOUL.md"));
+    assert!(seed_add.is_ok());
+    let seed_commit = repo.commit("seed");
+    assert!(seed_commit.is_ok());
+
+    let config = WorkspaceConfig {
+        workspace: dir.path().to_path_buf(),
+        watch: vec!["SOUL.md".to_owned()],
+        debounce_ms: 100,
+        push_interval_sec: 600,
+        mode: WatchMode::Watcher,
+    };
+
+    let watcher = match PersonaWatcher::new(&config, repo.clone()) {
+        Ok(watcher) => watcher,
+        Err(err) => panic!("failed to create watcher: {err}"),
+    };
+    let stop_handle = watcher.stop_handle();
+    let worker = thread::spawn(move || watcher.run());
+
+    thread::sleep(Duration::from_millis(250));
+    let remove_result = fs::remove_file(&file_path);
+    assert!(remove_result.is_ok());
+
+    let mut commit_count = 0;
+    for _ in 0..30 {
+        thread::sleep(Duration::from_millis(100));
+        commit_count = git_commit_count(repo.path());
+        if commit_count >= 2 {
+            break;
+        }
+    }
+
+    stop_handle.store(true, Ordering::Relaxed);
+    let join_result = worker.join();
+    assert!(join_result.is_ok());
+    let run_result = match join_result {
+        Ok(result) => result,
+        Err(_) => panic!("watcher thread panicked"),
+    };
+    assert!(run_result.is_ok());
+    assert!(commit_count >= 2);
+}
+
 fn setup_git_identity(repo_path: &Path) {
     let name_status = std::process::Command::new("git")
         .arg("-C")

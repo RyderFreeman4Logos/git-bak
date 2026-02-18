@@ -119,23 +119,34 @@ impl PersonaWatcher {
             return Ok(());
         }
 
-        if !absolute_path.is_file() {
+        let is_deleted = !absolute_path.exists();
+        if !is_deleted && !absolute_path.is_file() {
             return Ok(());
         }
 
-        let stable = is_stable(&absolute_path, self.config.debounce_ms)?;
-        if !stable {
-            warn!("skip unstable path {}", absolute_path.display());
-            return Ok(());
+        if !is_deleted {
+            let stable = is_stable(&absolute_path, self.config.debounce_ms)?;
+            if !stable {
+                warn!("skip unstable path {}", absolute_path.display());
+                return Ok(());
+            }
         }
 
-        self.repo.add(relative_path.as_path())?;
+        if is_deleted {
+            self.repo.add_all(relative_path.as_path())?;
+        } else {
+            self.repo.add(relative_path.as_path())?;
+        }
         let status = self.repo.status()?;
         if status.is_empty() {
             return Ok(());
         }
 
-        let commit_message = format!("chore: auto backup {}", relative_path.display());
+        let commit_message = if is_deleted {
+            format!("chore: auto backup delete {}", relative_path.display())
+        } else {
+            format!("chore: auto backup {}", relative_path.display())
+        };
         let hash = self
             .repo
             .commit_path(&commit_message, relative_path.as_path())?;
