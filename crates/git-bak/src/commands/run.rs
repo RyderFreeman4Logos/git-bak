@@ -12,8 +12,7 @@ pub async fn execute() -> Result<(), Error> {
     let repo = GitRepo::new(&config.workspace)?;
 
     match config.mode {
-        WatchMode::Watcher => run_watcher_mode(&config, repo).await,
-        WatchMode::Hook => run_hook_mode(),
+        WatchMode::Watcher | WatchMode::Hook => run_watcher_mode(&config, repo).await,
     }
 }
 
@@ -65,13 +64,6 @@ fn unwrap_join_task_result(
     join_result.map_err(|_| Error::Watcher("watcher thread panicked".to_owned()))
 }
 
-fn run_hook_mode() -> Result<(), Error> {
-    Err(Error::Hook(
-        "hook mode is not managed by `git-bak run`; install and trigger the hook instead"
-            .to_owned(),
-    ))
-}
-
 fn config_path() -> Result<PathBuf, Error> {
     let current_dir = std::env::current_dir().map_err(|source| {
         Error::Config(format!("failed to resolve current directory: {source}"))
@@ -100,22 +92,9 @@ fn normalize_workspace_path(path: &Path) -> Result<PathBuf, Error> {
 
 #[cfg(test)]
 mod tests {
-    use git_bak_core::Error;
-
     use std::path::Path;
 
-    use super::{normalize_workspace_path, run_hook_mode};
-
-    #[test]
-    fn test_run_hook_mode_returns_clear_error() {
-        let result = run_hook_mode();
-        assert!(result.is_err());
-        let err = result.err().unwrap_or_else(|| Error::Hook(String::new()));
-        match err {
-            Error::Hook(message) => assert!(message.contains("hook mode")),
-            other => panic!("expected hook error, got {other}"),
-        }
-    }
+    use super::normalize_workspace_path;
 
     #[test]
     fn test_normalize_workspace_path_resolves_relative_path() {
