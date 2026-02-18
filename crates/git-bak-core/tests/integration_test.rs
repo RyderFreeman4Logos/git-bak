@@ -4,7 +4,9 @@ use std::sync::atomic::Ordering;
 use std::thread;
 use std::time::Duration;
 
-use git_bak_core::{GitRepo, PersonaWatcher, WatchMode, WorkspaceConfig};
+use git_bak_core::{
+    GitExecutor, GitRepo, PersonaWatcher, SharedSystemState, WatchMode, WorkspaceConfig,
+};
 use tempfile::tempdir;
 
 #[test]
@@ -54,10 +56,13 @@ fn test_watcher_pipeline() {
         watch: vec!["SOUL.md".to_owned()],
         debounce_ms: 100,
         push_interval_sec: 600,
+        storm_window_sec: 5,
         mode: WatchMode::Watcher,
     };
+    let mut executor = GitExecutor::start(repo.clone());
+    let state = SharedSystemState::new_running();
 
-    let watcher = match PersonaWatcher::new(&config, repo.clone()) {
+    let watcher = match PersonaWatcher::new(&config, executor.sender(), state) {
         Ok(watcher) => watcher,
         Err(err) => panic!("failed to create watcher: {err}"),
     };
@@ -86,6 +91,7 @@ fn test_watcher_pipeline() {
     };
     assert!(run_result.is_ok());
     assert!(commit_count > 0);
+    assert!(executor.stop().is_ok());
 }
 
 #[test]
@@ -113,10 +119,13 @@ fn test_watcher_pipeline_tracks_deletion() {
         watch: vec!["SOUL.md".to_owned()],
         debounce_ms: 100,
         push_interval_sec: 600,
+        storm_window_sec: 5,
         mode: WatchMode::Watcher,
     };
+    let mut executor = GitExecutor::start(repo.clone());
+    let state = SharedSystemState::new_running();
 
-    let watcher = match PersonaWatcher::new(&config, repo.clone()) {
+    let watcher = match PersonaWatcher::new(&config, executor.sender(), state) {
         Ok(watcher) => watcher,
         Err(err) => panic!("failed to create watcher: {err}"),
     };
@@ -145,6 +154,7 @@ fn test_watcher_pipeline_tracks_deletion() {
     };
     assert!(run_result.is_ok());
     assert!(commit_count >= 2);
+    assert!(executor.stop().is_ok());
 }
 
 fn setup_git_identity(repo_path: &Path) {

@@ -165,6 +165,18 @@ impl GitRepo {
         run_git_in_os(&self.path, [OsStr::new("tag"), OsStr::new(name)]).map(|_| ())
     }
 
+    pub fn push(&self, remote: &str) -> Result<()> {
+        run_git_in_os(
+            &self.path,
+            [
+                OsStr::new("push"),
+                OsStr::new(remote),
+                OsStr::new("HEAD"),
+            ],
+        )
+        .map(|_| ())
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
     }

@@ -15,6 +15,8 @@ pub struct WorkspaceConfig {
     pub debounce_ms: u64,
     #[serde(default = "default_push_interval_sec")]
     pub push_interval_sec: u64,
+    #[serde(default = "default_storm_window_sec")]
+    pub storm_window_sec: u64,
     #[serde(default)]
     pub mode: WatchMode,
 }
@@ -67,6 +69,10 @@ fn default_push_interval_sec() -> u64 {
     600
 }
 
+fn default_storm_window_sec() -> u64 {
+    5
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -97,6 +103,7 @@ mod tests {
         assert_eq!(config.watch.len(), 7);
         assert_eq!(config.debounce_ms, 1_500);
         assert_eq!(config.push_interval_sec, 600);
+        assert_eq!(config.storm_window_sec, 5);
         assert_eq!(config.mode, WatchMode::Watcher);
     }
 
@@ -107,6 +114,7 @@ workspace = "/tmp/workspace"
 watch = ["SOUL.md", "memory/*.md"]
 debounce_ms = 300
 push_interval_sec = 120
+storm_window_sec = 8
 mode = "hook"
 "#;
 
@@ -119,6 +127,7 @@ mode = "hook"
         assert_eq!(config.watch.len(), 2);
         assert_eq!(config.debounce_ms, 300);
         assert_eq!(config.push_interval_sec, 120);
+        assert_eq!(config.storm_window_sec, 8);
         assert_eq!(config.mode, WatchMode::Hook);
     }
 
@@ -137,6 +146,7 @@ workspace = "/tmp/minimal"
         assert_eq!(config.watch.len(), 7);
         assert_eq!(config.debounce_ms, 1_500);
         assert_eq!(config.push_interval_sec, 600);
+        assert_eq!(config.storm_window_sec, 5);
         assert_eq!(config.mode, WatchMode::Watcher);
     }
 }

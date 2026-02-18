@@ -15,6 +15,7 @@ pub fn execute() -> Result<(), Error> {
     println!("watch count: {}", config.watch.len());
     println!("debounce_ms: {}", config.debounce_ms);
     println!("push_interval_sec: {}", config.push_interval_sec);
+    println!("storm_window_sec: {}", config.storm_window_sec);
     println!("mode: {:?}", config.mode);
 
     let porcelain = repo.status()?;

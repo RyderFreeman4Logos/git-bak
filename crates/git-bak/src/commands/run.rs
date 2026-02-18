@@ -3,7 +3,10 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::Ordering;
 use std::thread;
 
-use git_bak_core::{Error, GitRepo, PersonaWatcher, ProcessLock, WatchMode, WorkspaceConfig};
+use git_bak_core::{
+    Error, GitExecutor, GitRepo, PersonaWatcher, ProcessLock, SharedSystemState, WatchMode,
+    WorkspaceConfig,
+};
 
 pub async fn execute() -> Result<(), Error> {
     let config_path = config_path()?;
@@ -18,8 +21,10 @@ pub async fn execute() -> Result<(), Error> {
 
 async fn run_watcher_mode(config: &WorkspaceConfig, repo: GitRepo) -> Result<(), Error> {
     let _lock = ProcessLock::acquire(repo.path())?;
+    let mut executor = GitExecutor::start(repo);
+    let state = SharedSystemState::new_running();
 
-    let watcher = PersonaWatcher::new(config, repo)?;
+    let watcher = PersonaWatcher::new(config, executor.sender(), state)?;
     let stop_handle = watcher.stop_handle();
     let worker = thread::spawn(move || watcher.run());
     let mut join_task = tokio::task::spawn_blocking(move || worker.join());
@@ -39,7 +44,7 @@ async fn run_watcher_mode(config: &WorkspaceConfig, repo: GitRepo) -> Result<(),
         }
     };
 
-    match exit_reason {
+    let result = match exit_reason {
         ExitReason::CtrlC => {
             stop_handle.store(true, Ordering::Relaxed);
             unwrap_join_task_result(join_task.await)?
@@ -50,7 +55,10 @@ async fn run_watcher_mode(config: &WorkspaceConfig, repo: GitRepo) -> Result<(),
             )),
             Err(err) => Err(err),
         },
-    }
+    };
+
+    executor.stop()?;
+    result
 }
 
 fn unwrap_join_task_result(
