@@ -6,8 +6,8 @@ use std::thread;
 use std::time::Duration;
 
 use git_bak_core::{
-    Error, GitExecutor, GitRepo, HookHandler, PersonaWatcher, ProcessLock, SharedSystemState,
-    WatchMode, WorkspaceConfig,
+    Error, GitCommand, GitExecutor, GitRepo, HookHandler, PersonaWatcher, ProcessLock,
+    PushScheduler, SharedSystemState, WatchMode, WorkspaceConfig, oneshot,
 };
 use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use tracing::{info, warn};
@@ -27,6 +27,8 @@ pub async fn execute() -> Result<(), Error> {
 async fn run_watcher_mode(config: &WorkspaceConfig, repo: GitRepo) -> Result<(), Error> {
     let _lock = ProcessLock::acquire(repo.path())?;
     let mut executor = GitExecutor::start(repo);
+    let mut push_scheduler =
+        PushScheduler::start(config, executor.sender(), executor.commit_count());
     let state = SharedSystemState::new_running();
 
     let watcher = PersonaWatcher::new(config, executor.sender(), state)?;
@@ -62,6 +64,8 @@ async fn run_watcher_mode(config: &WorkspaceConfig, repo: GitRepo) -> Result<(),
         },
     };
 
+    push_scheduler.stop()?;
+    drain_executor(&executor)?;
     executor.stop()?;
     result
 }
@@ -69,6 +73,8 @@ async fn run_watcher_mode(config: &WorkspaceConfig, repo: GitRepo) -> Result<(),
 async fn run_hook_mode(config: &WorkspaceConfig, repo: GitRepo) -> Result<(), Error> {
     let _lock = ProcessLock::acquire(repo.path())?;
     let mut executor = GitExecutor::start(repo);
+    let mut push_scheduler =
+        PushScheduler::start(config, executor.sender(), executor.commit_count());
     let handler = HookHandler::new(config, executor.sender());
     handler.ensure_signal_dir()?;
 
@@ -105,6 +111,8 @@ async fn run_hook_mode(config: &WorkspaceConfig, repo: GitRepo) -> Result<(), Er
         },
     };
 
+    push_scheduler.stop()?;
+    drain_executor(&executor)?;
     executor.stop()?;
     result
 }
@@ -162,6 +170,20 @@ fn run_hook_event_loop(handler: HookHandler, stop_flag: Arc<AtomicBool>) -> Resu
     }
 
     info!("hook signal watcher stopped");
+    Ok(())
+}
+
+fn drain_executor(executor: &GitExecutor) -> Result<(), Error> {
+    let (barrier_tx, barrier_rx) = oneshot();
+    executor
+        .sender()
+        .send(GitCommand::Barrier { reply: barrier_tx })
+        .map_err(|source| Error::Watcher(format!("failed to send barrier command: {source}")))?;
+    barrier_rx.recv().map_err(|source| {
+        Error::Watcher(format!(
+            "failed to receive barrier acknowledgement before shutdown: {source}"
+        ))
+    })?;
     Ok(())
 }
 

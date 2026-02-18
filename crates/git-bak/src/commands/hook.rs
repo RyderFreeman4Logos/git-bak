@@ -74,7 +74,7 @@ mod tests {
         fs::write(dir.path().join("SOUL.md"), "hook cli\n")
             .unwrap_or_else(|err| panic!("write watched file failed: {err}"));
         let config = format!(
-            "workspace = \"{}\"\nwatch = [\"SOUL.md\"]\ndebounce_ms = 100\npush_interval_sec = 600\nstorm_window_sec = 5\nhook_signal_dir = \".git-bak/hooks\"\nmode = \"hook\"\n",
+            "workspace = \"{}\"\nwatch = [\"SOUL.md\"]\ndebounce_ms = 100\npush_interval_sec = 600\npush_commit_threshold = 50\npush_backoff_base_sec = 30\nstorm_window_sec = 5\nhook_signal_dir = \".git-bak/hooks\"\nmode = \"hook\"\n",
             dir.path().to_string_lossy().replace('\\', "\\\\")
         );
         let config_path = dir.path().join("personaguard.toml");
