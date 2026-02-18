@@ -56,7 +56,11 @@ impl PersonaWatcher {
 
         while !self.stop_flag.load(Ordering::Relaxed) {
             match rx.recv_timeout(Duration::from_millis(200)) {
-                Ok(result) => self.handle_debounce_result(result)?,
+                Ok(result) => {
+                    if let Err(err) = self.handle_debounce_result(result) {
+                        warn!("watcher event handling failed: {err}");
+                    }
+                }
                 Err(mpsc::RecvTimeoutError::Timeout) => {}
                 Err(mpsc::RecvTimeoutError::Disconnected) => {
                     return Err(Error::Watcher(
@@ -79,18 +83,24 @@ impl PersonaWatcher {
     }
 
     fn handle_debounce_result(&self, result: DebounceEventResult) -> Result<()> {
-        let events = result.map_err(|errors| {
-            let joined = errors
-                .into_iter()
-                .map(|error| error.to_string())
-                .collect::<Vec<String>>()
-                .join("; ");
-            Error::Watcher(format!("watcher produced errors: {joined}"))
-        })?;
+        let events = match result {
+            Ok(events) => events,
+            Err(errors) => {
+                let joined = errors
+                    .into_iter()
+                    .map(|error| error.to_string())
+                    .collect::<Vec<String>>()
+                    .join("; ");
+                warn!("watcher produced errors: {joined}");
+                return Ok(());
+            }
+        };
 
         for event in events {
             for path in event.event.paths {
-                self.handle_path(path)?;
+                if let Err(err) = self.handle_path(path) {
+                    warn!("failed to process watched path: {err}");
+                }
             }
         }
 

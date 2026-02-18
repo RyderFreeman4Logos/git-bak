@@ -105,8 +105,23 @@ impl GitRepo {
         run_git_in(&self.path, ["rev-parse", "HEAD"]).map(|hash| hash.trim().to_owned())
     }
 
+    pub fn has_head_commit(&self) -> Result<bool> {
+        let output = Command::new("git")
+            .arg("-C")
+            .arg(&self.path)
+            .args(["rev-parse", "--verify", "HEAD"])
+            .output()
+            .map_err(|source| {
+                Error::Git(format!(
+                    "failed to verify HEAD in {}: {source}",
+                    self.path.display()
+                ))
+            })?;
+        Ok(output.status.success())
+    }
+
     pub fn recent_commits(&self, limit: usize) -> Result<String> {
-        if limit == 0 {
+        if limit == 0 || !self.has_head_commit()? {
             return Ok(String::new());
         }
         let count_arg = format!("-{limit}");
@@ -266,6 +281,26 @@ mod tests {
         let status = repo.status().unwrap_or_default();
         assert!(status.contains("A  USER.md"));
         assert!(!status.contains("SOUL.md"));
+    }
+
+    #[test]
+    fn test_recent_commits_is_empty_when_repository_has_no_commits() {
+        let dir = match tempdir() {
+            Ok(dir) => dir,
+            Err(err) => panic!("failed to create tempdir: {err}"),
+        };
+        let repo = match GitRepo::init(dir.path()) {
+            Ok(repo) => repo,
+            Err(err) => panic!("failed to init git repo: {err}"),
+        };
+
+        let has_commit = repo.has_head_commit();
+        assert!(has_commit.is_ok());
+        assert!(!has_commit.unwrap_or(true));
+
+        let commits = repo.recent_commits(5);
+        assert!(commits.is_ok());
+        assert!(commits.unwrap_or_default().is_empty());
     }
 
     fn setup_git_identity(repo_path: &Path) {

@@ -21,18 +21,46 @@ async fn run_watcher_mode(config: &WorkspaceConfig, repo: GitRepo) -> Result<(),
     let watcher = PersonaWatcher::new(config, repo)?;
     let stop_handle = watcher.stop_handle();
     let worker = thread::spawn(move || watcher.run());
+    let mut join_task = tokio::task::spawn_blocking(move || worker.join());
 
-    tokio::signal::ctrl_c()
-        .await
-        .map_err(|source| Error::Watcher(format!("failed to listen for Ctrl-C: {source}")))?;
-
-    stop_handle.store(true, Ordering::Relaxed);
-    match worker.join() {
-        Ok(run_result) => run_result?,
-        Err(_) => return Err(Error::Watcher("watcher thread panicked".to_owned())),
+    enum ExitReason {
+        CtrlC,
+        Worker(Result<(), Error>),
     }
 
-    Ok(())
+    let exit_reason = tokio::select! {
+        ctrl_c_result = tokio::signal::ctrl_c() => {
+            ctrl_c_result.map_err(|source| Error::Watcher(format!("failed to listen for Ctrl-C: {source}")))?;
+            ExitReason::CtrlC
+        }
+        worker_result = &mut join_task => {
+            ExitReason::Worker(unwrap_join_task_result(worker_result)?)
+        }
+    };
+
+    match exit_reason {
+        ExitReason::CtrlC => {
+            stop_handle.store(true, Ordering::Relaxed);
+            unwrap_join_task_result(join_task.await)?
+        }
+        ExitReason::Worker(run_result) => match run_result {
+            Ok(()) => Err(Error::Watcher(
+                "watcher stopped unexpectedly before Ctrl-C".to_owned(),
+            )),
+            Err(err) => Err(err),
+        },
+    }
+}
+
+fn unwrap_join_task_result(
+    join_task_result: std::result::Result<
+        std::thread::Result<Result<(), Error>>,
+        tokio::task::JoinError,
+    >,
+) -> Result<Result<(), Error>, Error> {
+    let join_result = join_task_result
+        .map_err(|source| Error::Watcher(format!("failed to join watcher task: {source}")))?;
+    join_result.map_err(|_| Error::Watcher("watcher thread panicked".to_owned()))
 }
 
 fn run_hook_mode() -> Result<(), Error> {

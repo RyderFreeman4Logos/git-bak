@@ -22,7 +22,11 @@ pub fn execute() -> Result<(), Error> {
     }
 
     let log = repo.recent_commits(5)?;
-    println!("recent commits:\n{log}");
+    if log.is_empty() {
+        println!("recent commits: none");
+    } else {
+        println!("recent commits:\n{log}");
+    }
 
     let lock_status = match ProcessLock::acquire(repo.path()) {
         Ok(lock) => {
