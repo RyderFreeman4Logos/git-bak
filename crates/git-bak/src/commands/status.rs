@@ -37,7 +37,10 @@ pub fn execute() -> Result<(), Error> {
             drop(lock);
             format!("unlocked ({})", path.display())
         }
-        Err(_) => "locked".to_owned(),
+        Err(Error::Lock(message)) if message.contains("failed to acquire lock") => {
+            "locked".to_owned()
+        }
+        Err(err) => format!("error ({err})"),
     };
     println!("lock status: {lock_status}");
 

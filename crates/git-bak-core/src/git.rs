@@ -34,6 +34,7 @@ impl GitRepo {
         })?;
 
         run_git_in(repo_path, ["init"])?;
+        ensure_local_identity(repo_path)?;
         Self::new(repo_path)
     }
 
@@ -199,6 +200,40 @@ fn run_git_in(path: &Path, args: impl IntoIterator<Item = impl AsRef<str>>) -> R
         path.display(),
         stderr
     )))
+}
+
+fn ensure_local_identity(path: &Path) -> Result<()> {
+    if !has_git_config_value(path, "user.name")? {
+        run_git_in(path, ["config", "--local", "user.name", "git-bak"])?;
+    }
+    if !has_git_config_value(path, "user.email")? {
+        run_git_in(
+            path,
+            ["config", "--local", "user.email", "git-bak@localhost"],
+        )?;
+    }
+    Ok(())
+}
+
+fn has_git_config_value(path: &Path, key: &str) -> Result<bool> {
+    let output = Command::new("git")
+        .arg("-C")
+        .arg(path)
+        .args(["config", "--get", key])
+        .output()
+        .map_err(|source| {
+            Error::Git(format!(
+                "failed to read git config {} in {}: {source}",
+                key,
+                path.display()
+            ))
+        })?;
+
+    if !output.status.success() {
+        return Ok(false);
+    }
+    let value = trim_trailing_newlines(String::from_utf8_lossy(&output.stdout).as_ref());
+    Ok(!value.is_empty())
 }
 
 fn run_git_in_os(path: &Path, args: impl IntoIterator<Item = impl AsRef<OsStr>>) -> Result<String> {
@@ -376,6 +411,23 @@ mod tests {
         assert!(fs::write(&file_path, "after\n").is_ok());
         let status = repo.status().unwrap_or_default();
         assert!(status.starts_with(" M SOUL.md"));
+    }
+
+    #[test]
+    fn test_init_sets_identity_so_commit_works_without_manual_config() {
+        let dir = match tempdir() {
+            Ok(dir) => dir,
+            Err(err) => panic!("failed to create tempdir: {err}"),
+        };
+        let repo = match GitRepo::init(dir.path()) {
+            Ok(repo) => repo,
+            Err(err) => panic!("failed to init git repo: {err}"),
+        };
+
+        let file_path = dir.path().join("SOUL.md");
+        assert!(fs::write(&file_path, "seed\n").is_ok());
+        assert!(repo.add(Path::new("SOUL.md")).is_ok());
+        assert!(repo.commit("seed").is_ok());
     }
 
     fn setup_git_identity(repo_path: &Path) {
