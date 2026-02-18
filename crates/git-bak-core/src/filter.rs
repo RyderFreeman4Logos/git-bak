@@ -6,14 +6,9 @@ pub struct PathFilter;
 impl PathFilter {
     pub fn matches_allowlist(path: &Path, patterns: &[String]) -> bool {
         let normalized_path = normalize_path(path);
-        let file_name = path
-            .file_name()
-            .and_then(|name| name.to_str())
-            .unwrap_or_default();
-
-        patterns.iter().any(|pattern| {
-            matches_glob(pattern, &normalized_path) || matches_glob(pattern, file_name)
-        })
+        patterns
+            .iter()
+            .any(|pattern| matches_glob(pattern, &normalized_path))
     }
 
     pub fn matches_denylist(path: &Path) -> bool {
@@ -82,6 +77,10 @@ mod tests {
 
         assert!(PathFilter::matches_allowlist(
             Path::new("SOUL.md"),
+            &patterns
+        ));
+        assert!(!PathFilter::matches_allowlist(
+            Path::new("subdir/SOUL.md"),
             &patterns
         ));
         assert!(PathFilter::matches_allowlist(
