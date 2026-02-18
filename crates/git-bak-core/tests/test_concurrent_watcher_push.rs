@@ -71,7 +71,12 @@ fn set_origin_remote(repo_path: &Path, remote_path: &Path) {
     let status = Command::new("git")
         .arg("-C")
         .arg(repo_path)
-        .args(["remote", "add", "origin", remote_path.to_string_lossy().as_ref()])
+        .args([
+            "remote",
+            "add",
+            "origin",
+            remote_path.to_string_lossy().as_ref(),
+        ])
         .status()
         .unwrap_or_else(|err| panic!("failed to set origin remote: {err}"));
     assert!(status.success());

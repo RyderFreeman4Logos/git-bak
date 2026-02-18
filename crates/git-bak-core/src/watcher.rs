@@ -97,9 +97,13 @@ impl PersonaWatcher {
         let (barrier_tx, barrier_rx) = oneshot();
         self.command_tx
             .send(GitCommand::Barrier { reply: barrier_tx })
-            .map_err(|source| Error::Watcher(format!("failed to send barrier command: {source}")))?;
+            .map_err(|source| {
+                Error::Watcher(format!("failed to send barrier command: {source}"))
+            })?;
         barrier_rx.recv().map_err(|source| {
-            Error::Watcher(format!("failed to receive barrier acknowledgement: {source}"))
+            Error::Watcher(format!(
+                "failed to receive barrier acknowledgement: {source}"
+            ))
         })?;
         Ok(())
     }

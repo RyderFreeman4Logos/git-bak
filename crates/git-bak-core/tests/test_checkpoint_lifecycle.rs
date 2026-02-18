@@ -20,7 +20,8 @@ fn test_checkpoint_lifecycle() {
         .unwrap_or_else(|err| panic!("write seed failed: {err}"));
     repo.add(Path::new("SOUL.md"))
         .unwrap_or_else(|err| panic!("add seed failed: {err}"));
-    repo.commit("seed").unwrap_or_else(|err| panic!("seed commit failed: {err}"));
+    repo.commit("seed")
+        .unwrap_or_else(|err| panic!("seed commit failed: {err}"));
     repo.run_git_args(["checkout", "-b", "raw"])
         .unwrap_or_else(|err| panic!("create raw branch failed: {err}"));
     fs::write(dir.path().join("SOUL.md"), "raw-initial\n")
@@ -79,7 +80,12 @@ fn test_checkpoint_lifecycle() {
     assert!(executor.stop().is_ok());
 }
 
-fn wait_for_branch_commits(repo_path: &Path, branch: &str, expected: i64, timeout: Duration) -> i64 {
+fn wait_for_branch_commits(
+    repo_path: &Path,
+    branch: &str,
+    expected: i64,
+    timeout: Duration,
+) -> i64 {
     let start = Instant::now();
     let mut last = 0;
     while start.elapsed() <= timeout {

@@ -19,7 +19,11 @@ fn execute_with_config_path(event: String, config_path: &Path) -> Result<(), Err
 
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map_err(|source| Error::Hook(format!("failed to get system time for hook event: {source}")))?;
+        .map_err(|source| {
+            Error::Hook(format!(
+                "failed to get system time for hook event: {source}"
+            ))
+        })?;
     let signal = HookSignal {
         event,
         dedupe_key: format!("manual-{}", now.as_nanos()),

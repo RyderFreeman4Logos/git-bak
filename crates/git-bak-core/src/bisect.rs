@@ -72,7 +72,9 @@ fn send_barrier(command_tx: &mpsc::Sender<GitCommand>) -> Result<()> {
     let (barrier_tx, barrier_rx) = oneshot();
     command_tx
         .send(GitCommand::Barrier { reply: barrier_tx })
-        .map_err(|source| Error::Watcher(format!("failed to send bisect barrier command: {source}")))?;
+        .map_err(|source| {
+            Error::Watcher(format!("failed to send bisect barrier command: {source}"))
+        })?;
     barrier_rx.recv().map_err(|source| {
         Error::Watcher(format!(
             "failed to receive bisect barrier acknowledgement: {source}"

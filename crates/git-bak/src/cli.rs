@@ -12,10 +12,18 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    Init { path: Option<PathBuf> },
+    Init {
+        path: Option<PathBuf>,
+    },
     Run,
     Status,
-    Hook { event: String },
+    Hook {
+        event: String,
+    },
     Checkpoint,
-    Bisect { good: String, bad: String, run: String },
+    Bisect {
+        good: String,
+        bad: String,
+        run: String,
+    },
 }

@@ -20,6 +20,17 @@ pub struct PushScheduler {
     worker: Option<JoinHandle<()>>,
 }
 
+struct PushLoopContext {
+    repo_path: PathBuf,
+    command_tx: mpsc::Sender<GitCommand>,
+    commit_count: Arc<AtomicUsize>,
+    stop_flag: Arc<AtomicBool>,
+    push_interval: Duration,
+    threshold: usize,
+    base_backoff: Duration,
+    remote: String,
+}
+
 impl PushScheduler {
     pub fn start(
         config: &WorkspaceConfig,
@@ -33,16 +44,16 @@ impl PushScheduler {
         let threshold = config.push_commit_threshold.max(1);
         let base_backoff = Duration::from_secs(config.push_backoff_base_sec.max(1));
         let worker = thread::spawn(move || {
-            run_push_loop(
+            run_push_loop(PushLoopContext {
                 repo_path,
                 command_tx,
                 commit_count,
-                worker_stop_flag,
+                stop_flag: worker_stop_flag,
                 push_interval,
                 threshold,
                 base_backoff,
-                DEFAULT_REMOTE.to_owned(),
-            )
+                remote: DEFAULT_REMOTE.to_owned(),
+            })
         });
         let worker_thread = worker.thread().clone();
 
@@ -74,16 +85,17 @@ impl Drop for PushScheduler {
     }
 }
 
-fn run_push_loop(
-    repo_path: PathBuf,
-    command_tx: mpsc::Sender<GitCommand>,
-    commit_count: Arc<AtomicUsize>,
-    stop_flag: Arc<AtomicBool>,
-    push_interval: Duration,
-    threshold: usize,
-    base_backoff: Duration,
-    remote: String,
-) {
+fn run_push_loop(context: PushLoopContext) {
+    let PushLoopContext {
+        repo_path,
+        command_tx,
+        commit_count,
+        stop_flag,
+        push_interval,
+        threshold,
+        base_backoff,
+        remote,
+    } = context;
     let max_backoff = Duration::from_secs(MAX_BACKOFF_SEC);
     let mut backoff = base_backoff;
     let mut next_interval_deadline = Instant::now() + push_interval;
@@ -142,10 +154,9 @@ fn push_once(command_tx: &mpsc::Sender<GitCommand>, remote: &str) -> Result<()> 
             reply: push_tx,
         })
         .map_err(|source| Error::Git(format!("failed to enqueue push command: {source}")))?;
-    let result = push_rx
+    push_rx
         .recv()
-        .map_err(|source| Error::Git(format!("failed to receive push command result: {source}")))?;
-    result
+        .map_err(|source| Error::Git(format!("failed to receive push command result: {source}")))?
 }
 
 fn is_network_reachable(repo_path: &Path, remote: &str) -> bool {
@@ -186,8 +197,8 @@ mod tests {
     use std::fs;
     use std::path::Path;
     use std::process::Command;
-    use std::sync::mpsc;
     use std::sync::atomic::Ordering;
+    use std::sync::mpsc;
     use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
     use super::{PushScheduler, next_backoff};
@@ -199,7 +210,10 @@ mod tests {
     #[test]
     fn test_backoff_doubles_and_caps() {
         let max_backoff = Duration::from_secs(60);
-        assert_eq!(next_backoff(Duration::from_secs(5), max_backoff).as_secs(), 10);
+        assert_eq!(
+            next_backoff(Duration::from_secs(5), max_backoff).as_secs(),
+            10
+        );
         assert_eq!(
             next_backoff(Duration::from_secs(40), max_backoff).as_secs(),
             60
@@ -261,21 +275,24 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .map(|duration| duration.as_nanos())
             .unwrap_or_default();
-        let root = std::env::temp_dir().join(format!(
-            "git-bak-push-test-{}-{nanos}",
-            std::process::id()
-        ));
+        let root =
+            std::env::temp_dir().join(format!("git-bak-push-test-{}-{nanos}", std::process::id()));
         fs::create_dir_all(&root).unwrap_or_else(|err| panic!("mkdir root failed: {err}"));
         let repo_path = root.join("repo");
         fs::create_dir_all(&repo_path).unwrap_or_else(|err| panic!("mkdir repo failed: {err}"));
-        let repo = GitRepo::init(&repo_path).unwrap_or_else(|err| panic!("init repo failed: {err}"));
+        let repo =
+            GitRepo::init(&repo_path).unwrap_or_else(|err| panic!("init repo failed: {err}"));
 
         if reachable_remote {
             let remote_path = root.join("remote.git");
             init_bare_remote(&remote_path);
             set_remote(repo.path(), "origin", &remote_path);
         } else {
-            set_remote(repo.path(), "origin", Path::new("/tmp/non-existent-git-bak-remote"));
+            set_remote(
+                repo.path(),
+                "origin",
+                Path::new("/tmp/non-existent-git-bak-remote"),
+            );
         }
 
         let config = WorkspaceConfig {
@@ -308,7 +325,12 @@ mod tests {
         let status = Command::new("git")
             .arg("-C")
             .arg(repo_path)
-            .args(["remote", "add", remote, remote_path.to_string_lossy().as_ref()])
+            .args([
+                "remote",
+                "add",
+                remote,
+                remote_path.to_string_lossy().as_ref(),
+            ])
             .status()
             .unwrap_or_else(|err| panic!("failed to set remote: {err}"));
         assert!(status.success());

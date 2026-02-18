@@ -71,7 +71,10 @@ impl HookHandler {
             .and_then(|name| name.to_str())
             .unwrap_or_default();
         if file_name.ends_with(".tmp") {
-            debug!("ignore temporary hook signal file {}", signal_path.display());
+            debug!(
+                "ignore temporary hook signal file {}",
+                signal_path.display()
+            );
             return Ok(false);
         }
         if !signal_path.is_file() {
@@ -149,7 +152,9 @@ impl HookHandler {
         })?;
         let status = status_result?;
         let relative_path_text = relative_path.to_string_lossy();
-        let has_path_change = status.lines().any(|line| line.ends_with(relative_path_text.as_ref()));
+        let has_path_change = status
+            .lines()
+            .any(|line| line.ends_with(relative_path_text.as_ref()));
         if !has_path_change {
             return Ok(());
         }
@@ -261,11 +266,13 @@ mod tests {
 
     #[test]
     fn test_parse_valid_and_invalid_signal_files() {
-        let valid = r#"{"event":"command:stop","dedupe_key":"01TEST","timestamp":"2026-01-01T00:00:00Z"}"#;
+        let valid =
+            r#"{"event":"command:stop","dedupe_key":"01TEST","timestamp":"2026-01-01T00:00:00Z"}"#;
         let parsed = HookHandler::parse_signal_json(valid);
         assert!(parsed.is_ok());
 
-        let invalid = r#"{"event":"unknown","dedupe_key":"01TEST","timestamp":"2026-01-01T00:00:00Z"}"#;
+        let invalid =
+            r#"{"event":"unknown","dedupe_key":"01TEST","timestamp":"2026-01-01T00:00:00Z"}"#;
         let parsed_invalid = HookHandler::parse_signal_json(invalid);
         assert!(parsed_invalid.is_err());
     }

@@ -72,10 +72,9 @@ fn send_checkout(command_tx: &mpsc::Sender<GitCommand>, branch: &str) -> Result<
             reply: reply_tx,
         })
         .map_err(|source| Error::Git(format!("failed to send checkout command: {source}")))?;
-    let result = reply_rx
+    reply_rx
         .recv()
-        .map_err(|source| Error::Git(format!("failed to receive checkout result: {source}")))?;
-    result
+        .map_err(|source| Error::Git(format!("failed to receive checkout result: {source}")))?
 }
 
 fn send_create_branch(
@@ -91,12 +90,11 @@ fn send_create_branch(
             reply: reply_tx,
         })
         .map_err(|source| Error::Git(format!("failed to send create-branch command: {source}")))?;
-    let result = reply_rx.recv().map_err(|source| {
+    reply_rx.recv().map_err(|source| {
         Error::Git(format!(
             "failed to receive create-branch command result: {source}"
         ))
-    })?;
-    result
+    })?
 }
 
 fn send_merge_squash(command_tx: &mpsc::Sender<GitCommand>, from: &str) -> Result<()> {
@@ -107,12 +105,11 @@ fn send_merge_squash(command_tx: &mpsc::Sender<GitCommand>, from: &str) -> Resul
             reply: reply_tx,
         })
         .map_err(|source| Error::Git(format!("failed to send merge-squash command: {source}")))?;
-    let result = reply_rx.recv().map_err(|source| {
+    reply_rx.recv().map_err(|source| {
         Error::Git(format!(
             "failed to receive merge-squash command result: {source}"
         ))
-    })?;
-    result
+    })?
 }
 
 fn send_commit(command_tx: &mpsc::Sender<GitCommand>, message: &str) -> Result<()> {
@@ -122,7 +119,11 @@ fn send_commit(command_tx: &mpsc::Sender<GitCommand>, message: &str) -> Result<(
             message: message.to_owned(),
             reply: reply_tx,
         })
-        .map_err(|source| Error::Git(format!("failed to send checkpoint commit command: {source}")))?;
+        .map_err(|source| {
+            Error::Git(format!(
+                "failed to send checkpoint commit command: {source}"
+            ))
+        })?;
     let result = reply_rx.recv().map_err(|source| {
         Error::Git(format!(
             "failed to receive checkpoint commit result from executor: {source}"
@@ -164,7 +165,8 @@ mod tests {
             .unwrap_or_else(|err| panic!("failed to write seed file: {err}"));
         repo.add(Path::new("SOUL.md"))
             .unwrap_or_else(|err| panic!("add seed failed: {err}"));
-        repo.commit("seed").unwrap_or_else(|err| panic!("seed commit failed: {err}"));
+        repo.commit("seed")
+            .unwrap_or_else(|err| panic!("seed commit failed: {err}"));
         repo.run_git_args(["checkout", "-b", "raw"])
             .unwrap_or_else(|err| panic!("create raw branch failed: {err}"));
 

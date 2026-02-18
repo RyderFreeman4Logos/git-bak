@@ -2,7 +2,9 @@ use std::fs;
 use std::path::Path;
 use std::process::Command;
 
-use git_bak_core::{GitExecutor, GitRepo, SharedSystemState, WatchMode, WorkspaceConfig, bisect_run};
+use git_bak_core::{
+    GitExecutor, GitRepo, SharedSystemState, WatchMode, WorkspaceConfig, bisect_run,
+};
 use tempfile::tempdir;
 
 #[test]
@@ -25,7 +27,8 @@ fn test_bisect_lifecycle() {
         .unwrap_or_else(|err| panic!("write seed marker failed: {err}"));
     repo.add(Path::new("marker.txt"))
         .unwrap_or_else(|err| panic!("add seed marker failed: {err}"));
-    repo.commit("seed").unwrap_or_else(|err| panic!("seed commit failed: {err}"));
+    repo.commit("seed")
+        .unwrap_or_else(|err| panic!("seed commit failed: {err}"));
 
     fs::write(dir.path().join("marker.txt"), "good-v1\n")
         .unwrap_or_else(|err| panic!("write good marker failed: {err}"));

@@ -97,7 +97,9 @@ impl GitExecutor {
         let (reply_tx, reply_rx) = oneshot();
         self.tx
             .send(GitCommand::Shutdown { reply: reply_tx })
-            .map_err(|source| Error::Watcher(format!("failed to send shutdown command: {source}")))?;
+            .map_err(|source| {
+                Error::Watcher(format!("failed to send shutdown command: {source}"))
+            })?;
         reply_rx.recv().map_err(|source| {
             Error::Watcher(format!(
                 "failed to receive shutdown acknowledgment from executor: {source}"
@@ -229,7 +231,9 @@ mod tests {
             .unwrap_or_else(|err| panic!("failed to recv commit reply: {err}"));
         assert!(commit_result.is_ok());
 
-        let status = repo.status().unwrap_or_else(|err| panic!("status failed: {err}"));
+        let status = repo
+            .status()
+            .unwrap_or_else(|err| panic!("status failed: {err}"));
         assert!(status.is_empty());
         assert_eq!(executor.commit_count().load(Ordering::Relaxed), 1);
         assert!(executor.stop().is_ok());

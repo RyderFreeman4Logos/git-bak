@@ -203,11 +203,7 @@ impl GitRepo {
     pub fn push(&self, remote: &str) -> Result<()> {
         run_git_in_os(
             &self.path,
-            [
-                OsStr::new("push"),
-                OsStr::new(remote),
-                OsStr::new("HEAD"),
-            ],
+            [OsStr::new("push"), OsStr::new(remote), OsStr::new("HEAD")],
         )
         .map(|_| ())
     }

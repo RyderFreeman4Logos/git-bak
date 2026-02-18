@@ -1,8 +1,8 @@
 mod bisect;
 mod checkpoint;
 mod config;
-mod executor;
 mod error;
+mod executor;
 mod filter;
 mod git;
 mod hash;
@@ -13,11 +13,11 @@ mod state;
 mod types;
 mod watcher;
 
-pub use config::WorkspaceConfig;
 pub use bisect::bisect_run;
 pub use checkpoint::checkpoint;
-pub use executor::{GitCommand, GitExecutor, OneShotReceiver, OneShotSender, oneshot};
+pub use config::WorkspaceConfig;
 pub use error::{Error, Result};
+pub use executor::{GitCommand, GitExecutor, OneShotReceiver, OneShotSender, oneshot};
 pub use filter::PathFilter;
 pub use git::GitRepo;
 pub use hash::{file_hash, is_stable};
