@@ -126,7 +126,9 @@ impl PersonaWatcher {
         }
 
         let commit_message = format!("chore: auto backup {}", relative_path.display());
-        let hash = self.repo.commit(&commit_message)?;
+        let hash = self
+            .repo
+            .commit_path(&commit_message, relative_path.as_path())?;
         info!(
             "created backup commit {} for {}",
             hash,

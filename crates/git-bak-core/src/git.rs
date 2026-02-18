@@ -78,6 +78,48 @@ impl GitRepo {
         run_git_in(&self.path, ["rev-parse", "HEAD"]).map(|hash| hash.trim().to_owned())
     }
 
+    pub fn commit_path(&self, message: &str, path: &Path) -> Result<String> {
+        let relative_path = if path.is_absolute() {
+            path.strip_prefix(&self.path).map_err(|source| {
+                Error::Git(format!(
+                    "path {} is outside repository {}: {source}",
+                    path.display(),
+                    self.path.display()
+                ))
+            })?
+        } else {
+            path
+        };
+
+        run_git_in_os(
+            &self.path,
+            [
+                OsStr::new("commit"),
+                OsStr::new("-m"),
+                OsStr::new(message),
+                OsStr::new("--no-gpg-sign"),
+                OsStr::new("--"),
+                relative_path.as_os_str(),
+            ],
+        )?;
+        run_git_in(&self.path, ["rev-parse", "HEAD"]).map(|hash| hash.trim().to_owned())
+    }
+
+    pub fn recent_commits(&self, limit: usize) -> Result<String> {
+        if limit == 0 {
+            return Ok(String::new());
+        }
+        let count_arg = format!("-{limit}");
+        run_git_in_os(
+            &self.path,
+            [
+                OsStr::new("log"),
+                OsStr::new("--oneline"),
+                OsStr::new(count_arg.as_str()),
+            ],
+        )
+    }
+
     pub fn tag(&self, name: &str) -> Result<()> {
         run_git_in_os(&self.path, [OsStr::new("tag"), OsStr::new(name)]).map(|_| ())
     }
@@ -197,6 +239,33 @@ mod tests {
             Err(err) => panic!("failed to read status: {err}"),
         };
         assert!(status.is_empty());
+    }
+
+    #[test]
+    fn test_commit_path_only_commits_target_file() {
+        let dir = match tempdir() {
+            Ok(dir) => dir,
+            Err(err) => panic!("failed to create tempdir: {err}"),
+        };
+        let repo = match GitRepo::init(dir.path()) {
+            Ok(repo) => repo,
+            Err(err) => panic!("failed to init git repo: {err}"),
+        };
+        setup_git_identity(repo.path());
+
+        let soul_path = dir.path().join("SOUL.md");
+        let user_path = dir.path().join("USER.md");
+        assert!(fs::write(&soul_path, "soul\n").is_ok());
+        assert!(fs::write(&user_path, "user\n").is_ok());
+        assert!(repo.add(Path::new("SOUL.md")).is_ok());
+        assert!(repo.add(Path::new("USER.md")).is_ok());
+
+        let commit_result = repo.commit_path("commit soul only", Path::new("SOUL.md"));
+        assert!(commit_result.is_ok());
+
+        let status = repo.status().unwrap_or_default();
+        assert!(status.contains("A  USER.md"));
+        assert!(!status.contains("SOUL.md"));
     }
 
     fn setup_git_identity(repo_path: &Path) {

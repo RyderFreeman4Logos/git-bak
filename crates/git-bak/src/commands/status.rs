@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use std::process::Command;
 
 use git_bak_core::{Error, GitRepo, ProcessLock, WorkspaceConfig};
 
@@ -22,7 +21,7 @@ pub fn execute() -> Result<(), Error> {
         println!("git status:\n{porcelain}");
     }
 
-    let log = recent_commits(repo.path())?;
+    let log = repo.recent_commits(5)?;
     println!("recent commits:\n{log}");
 
     let lock_status = match ProcessLock::acquire(repo.path()) {
@@ -43,30 +42,4 @@ fn config_path() -> Result<PathBuf, Error> {
         Error::Config(format!("failed to resolve current directory: {source}"))
     })?;
     Ok(current_dir.join("personaguard.toml"))
-}
-
-fn recent_commits(repo_path: &std::path::Path) -> Result<String, Error> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(repo_path)
-        .args(["log", "--oneline", "-5"])
-        .output()
-        .map_err(|source| {
-            Error::Git(format!(
-                "failed to read recent commits in {}: {source}",
-                repo_path.display()
-            ))
-        })?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
-        return Err(Error::Git(format!(
-            "failed to read recent commits in {}: {}",
-            repo_path.display(),
-            stderr
-        )));
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-    Ok(stdout)
 }

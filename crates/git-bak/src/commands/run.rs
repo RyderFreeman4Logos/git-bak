@@ -1,19 +1,24 @@
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::Ordering;
 use std::thread;
 
-use git_bak_core::{Error, GitRepo, PersonaWatcher, ProcessLock, WorkspaceConfig};
+use git_bak_core::{Error, GitRepo, PersonaWatcher, ProcessLock, WatchMode, WorkspaceConfig};
 
 pub async fn execute() -> Result<(), Error> {
     let config_path = config_path()?;
     let config = WorkspaceConfig::load(&config_path)?;
     let repo = GitRepo::new(&config.workspace)?;
 
-    recover_stale_lock(repo.path())?;
-    let lock = ProcessLock::acquire(repo.path())?;
+    match config.mode {
+        WatchMode::Watcher => run_watcher_mode(&config, repo).await,
+        WatchMode::Hook => run_hook_mode(),
+    }
+}
 
-    let watcher = PersonaWatcher::new(&config, repo)?;
+async fn run_watcher_mode(config: &WorkspaceConfig, repo: GitRepo) -> Result<(), Error> {
+    let _lock = ProcessLock::acquire(repo.path())?;
+
+    let watcher = PersonaWatcher::new(config, repo)?;
     let stop_handle = watcher.stop_handle();
     let worker = thread::spawn(move || watcher.run());
 
@@ -27,8 +32,14 @@ pub async fn execute() -> Result<(), Error> {
         Err(_) => return Err(Error::Watcher("watcher thread panicked".to_owned())),
     }
 
-    drop(lock);
     Ok(())
+}
+
+fn run_hook_mode() -> Result<(), Error> {
+    Err(Error::Hook(
+        "hook mode is not managed by `git-bak run`; install and trigger the hook instead"
+            .to_owned(),
+    ))
 }
 
 fn config_path() -> Result<PathBuf, Error> {
@@ -38,23 +49,20 @@ fn config_path() -> Result<PathBuf, Error> {
     Ok(current_dir.join("personaguard.toml"))
 }
 
-fn recover_stale_lock(repo_path: &Path) -> Result<(), Error> {
-    let lock_path = repo_path.join(".git").join("git-bak.lock");
-    if !lock_path.exists() {
-        return Ok(());
-    }
+#[cfg(test)]
+mod tests {
+    use git_bak_core::Error;
 
-    match ProcessLock::acquire(repo_path) {
-        Ok(lock) => {
-            drop(lock);
-            fs::remove_file(&lock_path).map_err(|source| {
-                Error::Lock(format!(
-                    "failed to remove stale lock file {}: {source}",
-                    lock_path.display()
-                ))
-            })?;
-            Ok(())
+    use super::run_hook_mode;
+
+    #[test]
+    fn test_run_hook_mode_returns_clear_error() {
+        let result = run_hook_mode();
+        assert!(result.is_err());
+        let err = result.err().unwrap_or_else(|| Error::Hook(String::new()));
+        match err {
+            Error::Hook(message) => assert!(message.contains("hook mode")),
+            other => panic!("expected hook error, got {other}"),
         }
-        Err(err) => Err(err),
     }
 }

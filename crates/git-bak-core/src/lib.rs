@@ -1,11 +1,11 @@
-pub mod config;
-pub mod error;
-pub mod filter;
-pub mod git;
-pub mod hash;
-pub mod lock;
-pub mod types;
-pub mod watcher;
+mod config;
+mod error;
+mod filter;
+mod git;
+mod hash;
+mod lock;
+mod types;
+mod watcher;
 
 pub use config::WorkspaceConfig;
 pub use error::{Error, Result};
