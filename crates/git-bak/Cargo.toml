@@ -11,3 +11,7 @@ clap = { workspace = true, features = ["derive"] }
 tracing.workspace = true
 tracing-subscriber.workspace = true
 tokio = { workspace = true, features = ["rt", "macros", "signal"] }
+notify.workspace = true
+
+[dev-dependencies]
+tempfile = "3.13"

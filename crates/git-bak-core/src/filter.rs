@@ -24,7 +24,10 @@ impl PathFilter {
         if matches_glob("*.pem", file_name) || matches_glob("*.key", file_name) {
             return true;
         }
-        normalized_path.starts_with("secrets/") || normalized_path.contains("/secrets/")
+        normalized_path.starts_with("secrets/")
+            || normalized_path.contains("/secrets/")
+            || normalized_path.starts_with(".git-bak/hooks/")
+            || normalized_path.contains("/.git-bak/hooks/")
     }
 }
 
@@ -104,6 +107,9 @@ mod tests {
         assert!(PathFilter::matches_denylist(Path::new("keys/private.key")));
         assert!(PathFilter::matches_denylist(Path::new("tls/cert.pem")));
         assert!(PathFilter::matches_denylist(Path::new("secrets/token.txt")));
+        assert!(PathFilter::matches_denylist(Path::new(
+            ".git-bak/hooks/signal-01.json"
+        )));
         assert!(!PathFilter::matches_denylist(Path::new("memory/notes.md")));
     }
 }

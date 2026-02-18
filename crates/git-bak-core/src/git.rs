@@ -165,8 +165,62 @@ impl GitRepo {
         run_git_in_os(&self.path, [OsStr::new("tag"), OsStr::new(name)]).map(|_| ())
     }
 
+    pub fn checkout_branch(&self, name: &str) -> Result<()> {
+        run_git_in_os(&self.path, [OsStr::new("checkout"), OsStr::new(name)]).map(|_| ())
+    }
+
+    pub fn create_branch(&self, name: &str, start_point: Option<&str>) -> Result<()> {
+        match start_point {
+            Some(start_point) => run_git_in_os(
+                &self.path,
+                [
+                    OsStr::new("branch"),
+                    OsStr::new(name),
+                    OsStr::new(start_point),
+                ],
+            )
+            .map(|_| ()),
+            None => run_git_in_os(&self.path, [OsStr::new("branch"), OsStr::new(name)]).map(|_| ()),
+        }
+    }
+
+    pub fn merge_squash(&self, from: &str) -> Result<()> {
+        run_git_in_os(
+            &self.path,
+            [
+                OsStr::new("merge"),
+                OsStr::new("--squash"),
+                OsStr::new(from),
+            ],
+        )
+        .map(|_| ())
+    }
+
+    pub fn current_branch(&self) -> Result<String> {
+        run_git_in(&self.path, ["rev-parse", "--abbrev-ref", "HEAD"])
+    }
+
+    pub fn push(&self, remote: &str) -> Result<()> {
+        run_git_in_os(
+            &self.path,
+            [OsStr::new("push"), OsStr::new(remote), OsStr::new("HEAD")],
+        )
+        .map(|_| ())
+    }
+
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    pub fn run_git_args(&self, args: impl IntoIterator<Item = impl AsRef<str>>) -> Result<String> {
+        run_git_in(&self.path, args)
+    }
+
+    pub fn run_git_os_args(
+        &self,
+        args: impl IntoIterator<Item = impl AsRef<OsStr>>,
+    ) -> Result<String> {
+        run_git_in_os(&self.path, args)
     }
 }
 
