@@ -274,6 +274,8 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "git-bak-core",
+ "notify",
+ "tempfile",
  "tokio",
  "tracing",
  "tracing-subscriber",
@@ -288,6 +290,7 @@ dependencies = [
  "notify",
  "notify-debouncer-full",
  "serde",
+ "serde_json",
  "tempfile",
  "thiserror",
  "toml",

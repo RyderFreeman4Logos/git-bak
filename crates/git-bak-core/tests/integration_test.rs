@@ -57,6 +57,7 @@ fn test_watcher_pipeline() {
         debounce_ms: 100,
         push_interval_sec: 600,
         storm_window_sec: 5,
+        hook_signal_dir: Path::new(".git-bak/hooks").to_path_buf(),
         mode: WatchMode::Watcher,
     };
     let mut executor = GitExecutor::start(repo.clone());
@@ -120,6 +121,7 @@ fn test_watcher_pipeline_tracks_deletion() {
         debounce_ms: 100,
         push_interval_sec: 600,
         storm_window_sec: 5,
+        hook_signal_dir: Path::new(".git-bak/hooks").to_path_buf(),
         mode: WatchMode::Watcher,
     };
     let mut executor = GitExecutor::start(repo.clone());

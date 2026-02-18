@@ -280,6 +280,7 @@ mod tests {
             debounce_ms: 10,
             push_interval_sec: 600,
             storm_window_sec: 5,
+            hook_signal_dir: Path::new(".git-bak/hooks").to_path_buf(),
             mode: WatchMode::Watcher,
         };
         let watcher = PersonaWatcher::new(&config, executor.sender(), state)
@@ -309,6 +310,7 @@ mod tests {
             debounce_ms: 10,
             push_interval_sec: 600,
             storm_window_sec: 5,
+            hook_signal_dir: Path::new(".git-bak/hooks").to_path_buf(),
             mode: WatchMode::Watcher,
         };
         let watcher = PersonaWatcher::new(&config, executor.sender(), state.clone())
@@ -344,6 +346,7 @@ mod tests {
             debounce_ms: 10,
             push_interval_sec: 600,
             storm_window_sec: 5,
+            hook_signal_dir: Path::new(".git-bak/hooks").to_path_buf(),
             mode: WatchMode::Watcher,
         };
 
@@ -358,6 +361,36 @@ mod tests {
         assert!(join_result.is_ok());
         let run_result = join_result.unwrap_or_else(|_| panic!("watcher thread panicked"));
         assert!(run_result.is_ok());
+        assert!(executor.stop().is_ok());
+    }
+
+    #[test]
+    fn test_signal_file_in_hook_dir_is_ignored() {
+        let dir = tempdir().unwrap_or_else(|err| panic!("failed to create temp dir: {err}"));
+        let repo = GitRepo::init(dir.path()).unwrap_or_else(|err| panic!("init failed: {err}"));
+        let mut executor = GitExecutor::start(repo.clone());
+        let state = SharedSystemState::new_running();
+        let config = WorkspaceConfig {
+            workspace: dir.path().to_path_buf(),
+            watch: vec![".git-bak/hooks/*.json".to_owned()],
+            debounce_ms: 10,
+            push_interval_sec: 600,
+            storm_window_sec: 5,
+            hook_signal_dir: Path::new(".git-bak/hooks").to_path_buf(),
+            mode: WatchMode::Watcher,
+        };
+
+        let watcher = PersonaWatcher::new(&config, executor.sender(), state)
+            .unwrap_or_else(|err| panic!("watcher creation failed: {err}"));
+        let hook_dir = dir.path().join(".git-bak/hooks");
+        fs::create_dir_all(&hook_dir).unwrap_or_else(|err| panic!("mkdir failed: {err}"));
+        let signal_file = hook_dir.join("signal-01.json");
+        fs::write(&signal_file, "{\"event\":\"command:new\"}\n")
+            .unwrap_or_else(|err| panic!("write signal file failed: {err}"));
+
+        assert!(watcher.handle_path(signal_file).is_ok());
+        let commit_count = git_commit_count(repo.path());
+        assert_eq!(commit_count, 0);
         assert!(executor.stop().is_ok());
     }
 

@@ -15,4 +15,5 @@ pub enum Commands {
     Init { path: Option<PathBuf> },
     Run,
     Status,
+    Hook { event: String },
 }

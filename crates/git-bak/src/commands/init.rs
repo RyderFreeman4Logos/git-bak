@@ -146,7 +146,7 @@ fn default_config_contents(workspace: &Path) -> String {
     let workspace_raw = workspace.to_string_lossy().into_owned();
     let workspace_escaped = escape_toml_basic_string(&workspace_raw);
     format!(
-        "workspace = \"{}\"\nwatch = [\"SOUL.md\", \"AGENTS.md\", \"USER.md\", \"IDENTITY.md\", \"TOOLS.md\", \"MEMORY.md\", \"memory/*.md\"]\ndebounce_ms = 1500\npush_interval_sec = 600\nstorm_window_sec = 5\nmode = \"watcher\"\n",
+        "workspace = \"{}\"\nwatch = [\"SOUL.md\", \"AGENTS.md\", \"USER.md\", \"IDENTITY.md\", \"TOOLS.md\", \"MEMORY.md\", \"memory/*.md\"]\ndebounce_ms = 1500\npush_interval_sec = 600\nstorm_window_sec = 5\nhook_signal_dir = \".git-bak/hooks\"\nmode = \"watcher\"\n",
         workspace_escaped
     )
 }

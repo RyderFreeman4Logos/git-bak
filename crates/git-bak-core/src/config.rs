@@ -17,6 +17,8 @@ pub struct WorkspaceConfig {
     pub push_interval_sec: u64,
     #[serde(default = "default_storm_window_sec")]
     pub storm_window_sec: u64,
+    #[serde(default = "default_hook_signal_dir")]
+    pub hook_signal_dir: PathBuf,
     #[serde(default)]
     pub mode: WatchMode,
 }
@@ -73,6 +75,10 @@ fn default_storm_window_sec() -> u64 {
     5
 }
 
+fn default_hook_signal_dir() -> PathBuf {
+    PathBuf::from(".git-bak/hooks")
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -104,6 +110,7 @@ mod tests {
         assert_eq!(config.debounce_ms, 1_500);
         assert_eq!(config.push_interval_sec, 600);
         assert_eq!(config.storm_window_sec, 5);
+        assert_eq!(config.hook_signal_dir, PathBuf::from(".git-bak/hooks"));
         assert_eq!(config.mode, WatchMode::Watcher);
     }
 
@@ -115,6 +122,7 @@ watch = ["SOUL.md", "memory/*.md"]
 debounce_ms = 300
 push_interval_sec = 120
 storm_window_sec = 8
+hook_signal_dir = ".signals/hooks"
 mode = "hook"
 "#;
 
@@ -128,6 +136,7 @@ mode = "hook"
         assert_eq!(config.debounce_ms, 300);
         assert_eq!(config.push_interval_sec, 120);
         assert_eq!(config.storm_window_sec, 8);
+        assert_eq!(config.hook_signal_dir, PathBuf::from(".signals/hooks"));
         assert_eq!(config.mode, WatchMode::Hook);
     }
 
@@ -147,6 +156,7 @@ workspace = "/tmp/minimal"
         assert_eq!(config.debounce_ms, 1_500);
         assert_eq!(config.push_interval_sec, 600);
         assert_eq!(config.storm_window_sec, 5);
+        assert_eq!(config.hook_signal_dir, PathBuf::from(".git-bak/hooks"));
         assert_eq!(config.mode, WatchMode::Watcher);
     }
 }

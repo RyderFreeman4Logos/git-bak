@@ -19,6 +19,7 @@ async fn main() {
         Commands::Init { path } => commands::init::execute(path),
         Commands::Run => commands::run::execute().await,
         Commands::Status => commands::status::execute(),
+        Commands::Hook { event } => commands::hook::execute(event),
     };
 
     if let Err(err) = result {
