@@ -20,6 +20,8 @@ async fn main() {
         Commands::Run => commands::run::execute().await,
         Commands::Status => commands::status::execute(),
         Commands::Hook { event } => commands::hook::execute(event),
+        Commands::Checkpoint => commands::checkpoint::execute(),
+        Commands::Bisect { good, bad, run } => commands::bisect::execute(good, bad, run),
     };
 
     if let Err(err) = result {

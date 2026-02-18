@@ -16,4 +16,6 @@ pub enum Commands {
     Run,
     Status,
     Hook { event: String },
+    Checkpoint,
+    Bisect { good: String, bad: String, run: String },
 }

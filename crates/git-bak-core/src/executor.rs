@@ -36,6 +36,19 @@ pub enum GitCommand {
         name: String,
         reply: OneShotSender<Result<()>>,
     },
+    CheckoutBranch {
+        name: String,
+        reply: OneShotSender<Result<()>>,
+    },
+    MergeSquash {
+        from: String,
+        reply: OneShotSender<Result<()>>,
+    },
+    CreateBranch {
+        name: String,
+        start_point: Option<String>,
+        reply: OneShotSender<Result<()>>,
+    },
     Status {
         reply: OneShotSender<Result<String>>,
     },
@@ -138,6 +151,22 @@ fn run_event_loop(repo: GitRepo, rx: mpsc::Receiver<GitCommand>, commit_count: A
             }
             GitCommand::Tag { name, reply } => {
                 let result = repo.tag(&name);
+                let _ = reply.send(result);
+            }
+            GitCommand::CheckoutBranch { name, reply } => {
+                let result = repo.checkout_branch(&name);
+                let _ = reply.send(result);
+            }
+            GitCommand::MergeSquash { from, reply } => {
+                let result = repo.merge_squash(&from);
+                let _ = reply.send(result);
+            }
+            GitCommand::CreateBranch {
+                name,
+                start_point,
+                reply,
+            } => {
+                let result = repo.create_branch(&name, start_point.as_deref());
                 let _ = reply.send(result);
             }
             GitCommand::Status { reply } => {

@@ -1,3 +1,5 @@
+mod bisect;
+mod checkpoint;
 mod config;
 mod executor;
 mod error;
@@ -12,6 +14,8 @@ mod types;
 mod watcher;
 
 pub use config::WorkspaceConfig;
+pub use bisect::bisect_run;
+pub use checkpoint::checkpoint;
 pub use executor::{GitCommand, GitExecutor, OneShotReceiver, OneShotSender, oneshot};
 pub use error::{Error, Result};
 pub use filter::PathFilter;
