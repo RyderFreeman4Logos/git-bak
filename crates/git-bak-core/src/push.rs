@@ -132,7 +132,7 @@ fn run_push_loop(context: PushLoopContext) {
         match push_once(&command_tx, &remote) {
             Ok(()) => {
                 debug!("push succeeded, resetting commit counter");
-                commit_count.store(0, Ordering::Relaxed);
+                subtract_pushed_commits(commit_count.as_ref(), commits);
                 backoff = base_backoff;
                 next_retry_deadline = now;
                 next_interval_deadline = now + push_interval;
@@ -192,16 +192,27 @@ fn next_backoff(current: Duration, max_backoff: Duration) -> Duration {
     }
 }
 
+fn subtract_pushed_commits(commit_count: &AtomicUsize, pushed_commits: usize) {
+    let mut current = commit_count.load(Ordering::Relaxed);
+    loop {
+        let next = current.saturating_sub(pushed_commits);
+        match commit_count.compare_exchange(current, next, Ordering::Relaxed, Ordering::Relaxed) {
+            Ok(_) => break,
+            Err(actual) => current = actual,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
     use std::path::Path;
     use std::process::Command;
-    use std::sync::atomic::Ordering;
+    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::mpsc;
     use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-    use super::{PushScheduler, next_backoff};
+    use super::{PushScheduler, next_backoff, subtract_pushed_commits};
     use crate::config::WorkspaceConfig;
     use crate::executor::{GitCommand, GitExecutor, oneshot};
     use crate::git::GitRepo;
@@ -222,6 +233,15 @@ mod tests {
             next_backoff(Duration::from_secs(60), max_backoff).as_secs(),
             60
         );
+    }
+
+    #[test]
+    fn test_subtract_pushed_commits_preserves_concurrent_increments() {
+        let counter = AtomicUsize::new(5);
+        subtract_pushed_commits(&counter, 3);
+        assert_eq!(counter.load(Ordering::Relaxed), 2);
+        subtract_pushed_commits(&counter, 10);
+        assert_eq!(counter.load(Ordering::Relaxed), 0);
     }
 
     #[test]
