@@ -188,11 +188,11 @@ fn run_git_in(path: &Path, args: impl IntoIterator<Item = impl AsRef<str>>) -> R
         })?;
 
     if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+        let stdout = trim_trailing_newlines(String::from_utf8_lossy(&output.stdout).as_ref());
         return Ok(stdout);
     }
 
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+    let stderr = trim_trailing_newlines(String::from_utf8_lossy(&output.stderr).as_ref());
     Err(Error::Git(format!(
         "git {:?} failed in {}: {}",
         arguments,
@@ -219,17 +219,21 @@ fn run_git_in_os(path: &Path, args: impl IntoIterator<Item = impl AsRef<OsStr>>)
         })?;
 
     if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
+        let stdout = trim_trailing_newlines(String::from_utf8_lossy(&output.stdout).as_ref());
         return Ok(stdout);
     }
 
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+    let stderr = trim_trailing_newlines(String::from_utf8_lossy(&output.stderr).as_ref());
     Err(Error::Git(format!(
         "git command {:?} failed in {}: {}",
         arguments,
         path.display(),
         stderr
     )))
+}
+
+fn trim_trailing_newlines(value: &str) -> String {
+    value.trim_end_matches(['\n', '\r']).to_owned()
 }
 
 #[cfg(test)]
@@ -350,6 +354,28 @@ mod tests {
         let commits = repo.recent_commits(5);
         assert!(commits.is_ok());
         assert!(commits.unwrap_or_default().is_empty());
+    }
+
+    #[test]
+    fn test_status_preserves_porcelain_leading_space() {
+        let dir = match tempdir() {
+            Ok(dir) => dir,
+            Err(err) => panic!("failed to create tempdir: {err}"),
+        };
+        let repo = match GitRepo::init(dir.path()) {
+            Ok(repo) => repo,
+            Err(err) => panic!("failed to init git repo: {err}"),
+        };
+        setup_git_identity(repo.path());
+
+        let file_path = dir.path().join("SOUL.md");
+        assert!(fs::write(&file_path, "before\n").is_ok());
+        assert!(repo.add(Path::new("SOUL.md")).is_ok());
+        assert!(repo.commit("seed").is_ok());
+
+        assert!(fs::write(&file_path, "after\n").is_ok());
+        let status = repo.status().unwrap_or_default();
+        assert!(status.starts_with(" M SOUL.md"));
     }
 
     fn setup_git_identity(repo_path: &Path) {

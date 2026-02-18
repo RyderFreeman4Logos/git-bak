@@ -56,7 +56,7 @@ fn matches_glob(pattern: &str, text: &str) -> bool {
             let text_char = text_chars[j - 1];
 
             dp[i][j] = match pattern_char {
-                '*' => dp[i - 1][j] || dp[i][j - 1],
+                '*' => dp[i - 1][j] || (text_char != '/' && dp[i][j - 1]),
                 '?' => dp[i - 1][j - 1],
                 _ => pattern_char == text_char && dp[i - 1][j - 1],
             };
@@ -86,6 +86,10 @@ mod tests {
         ));
         assert!(PathFilter::matches_allowlist(
             Path::new("memory/session.md"),
+            &patterns
+        ));
+        assert!(!PathFilter::matches_allowlist(
+            Path::new("memory/private/secret.md"),
             &patterns
         ));
         assert!(!PathFilter::matches_allowlist(
